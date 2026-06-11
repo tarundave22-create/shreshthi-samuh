@@ -532,6 +532,7 @@ body{font-family:var(--font-u);background:var(--gray-l);color:#1a1a1a;display:bl
   <div class="login-form">
     <div id="lStep1">
       <div class="fg"><label>मोबाइल नंबर <span>*</span></label><input type="tel" id="lMob" placeholder="10 अंक" maxlength="10"></div>
+      <div id="rcap-div"></div>
       <button class="btn btn-red btn-full" onclick="sendOTP()">OTP भेजें →</button>
       <p style="text-align:center;margin-top:14px;font-family:var(--font-d);font-size:13px;color:var(--gray)">अभी सदस्य नहीं? <a onclick="goScreen('register')" style="color:var(--red);cursor:pointer;font-weight:700">पंजीकरण करें</a></p>
     </div>
@@ -914,14 +915,29 @@ async function sendOTP(){
   showLoader();
   try {
     if(auth){
-      window.rcap = new firebase.auth.RecaptchaVerifier('lStep1',{size:'invisible',callback:()=>{}});
+      if(!window.rcap){
+        window.rcap = new firebase.auth.RecaptchaVerifier('rcap-div',{
+          size:'invisible',
+          callback:(r)=>{}
+        });
+      }
       confRes = await auth.signInWithPhoneNumber('+91'+mob, window.rcap);
-      toast('OTP भेजा गया!','ok');
-    } else { toast('Demo: OTP = 123456','inf'); }
-  } catch(e){ toast('Demo: OTP = 123456','inf'); }
-  hideLoader();
-  document.getElementById('lStep1').style.display='none';
-  document.getElementById('lStep2').style.display='block';
+      toast('OTP भेजा गया! ✅','ok');
+      hideLoader();
+      document.getElementById('lStep1').style.display='none';
+      document.getElementById('lStep2').style.display='block';
+    } else { 
+      toast('Demo: OTP = 123456','inf');
+      hideLoader();
+      document.getElementById('lStep1').style.display='none';
+      document.getElementById('lStep2').style.display='block';
+    }
+  } catch(e){ 
+    console.log(e);
+    toast('OTP नहीं आया। दोबारा कोशिश करें।','err');
+    hideLoader();
+    if(window.rcap){ try{ window.rcap.clear(); }catch(x){} window.rcap=null; }
+  }
 }
 async function verifyOTP(){
   const otp = document.getElementById('lOTP').value.trim();
