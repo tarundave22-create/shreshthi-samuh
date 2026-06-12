@@ -1,0 +1,909 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>श्रेष्ठी परिषद — Admin Panel</title>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+<style>
+:root {
+  --red:#8B1A1A; --red-d:#5A0808;
+  --gold:#D4A017; --gold-p:#FDF3DC;
+  --navy:#1F3864; --navy-l:#2D4F8A;
+  --green:#166534; --green-l:#DCFCE7;
+  --orange:#B45309; --orange-l:#FEF3C7;
+  --gray:#6B7280; --gray-l:#F3F4F6;
+  --border:#E5E7EB; --white:#fff;
+  --font:'Segoe UI','Arial',sans-serif;
+  --font-d:'Noto Sans Devanagari','Mangal',sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:#F0F2F5;color:#1a1a1a;min-height:100vh}
+
+/* ── LOGIN ── */
+#loginWrap{min-height:100vh;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg,var(--red-d),var(--red))}
+.login-box{background:#fff;border-radius:16px;padding:40px 32px;width:100%;max-width:380px;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.login-logo{text-align:center;margin-bottom:24px}
+.login-logo .sym{font-family:var(--font-d);font-size:48px;color:var(--gold);line-height:1}
+.login-logo h2{font-family:var(--font-d);font-size:18px;color:var(--red);margin-top:6px}
+.login-logo p{font-size:12px;color:var(--gray);margin-top:2px}
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:14px}
+.fg label{font-size:12px;font-weight:600;color:var(--navy)}
+.fg input{padding:11px 14px;border-radius:8px;border:1.5px solid var(--border);font-size:14px;outline:none;transition:.2s}
+.fg input:focus{border-color:var(--red);box-shadow:0 0 0 3px rgba(139,26,26,.08)}
+.btn{padding:12px 20px;border-radius:8px;font-size:14px;font-weight:600;border:none;cursor:pointer;transition:.2s;display:inline-flex;align-items:center;justify-content:center;gap:6px}
+.btn:active{transform:scale(.98)}
+.btn-red{background:var(--red);color:#fff;width:100%}
+.btn-red:hover{background:var(--red-d)}
+.err-msg{color:var(--red);font-size:12px;text-align:center;margin-top:8px;display:none}
+
+/* ── MAIN LAYOUT ── */
+#adminWrap{display:none;min-height:100vh}
+.sidebar{width:220px;background:linear-gradient(180deg,var(--red-d),var(--red));position:fixed;top:0;left:0;bottom:0;z-index:100;display:flex;flex-direction:column}
+.sb-logo{padding:20px 16px;border-bottom:1px solid rgba(255,255,255,.15)}
+.sb-logo .sym{font-family:var(--font-d);font-size:28px;color:var(--gold);line-height:1}
+.sb-logo h2{font-family:var(--font-d);font-size:14px;color:#fff;margin-top:4px}
+.sb-logo p{font-size:10px;color:rgba(255,255,255,.6);margin-top:2px}
+.sb-nav{flex:1;padding:12px 8px;overflow-y:auto}
+.sb-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:8px;cursor:pointer;color:rgba(255,255,255,.8);font-size:13px;font-weight:500;transition:.2s;margin-bottom:2px;border:none;background:transparent;width:100%;text-align:left}
+.sb-item:hover{background:rgba(255,255,255,.15);color:#fff}
+.sb-item.active{background:rgba(255,255,255,.2);color:#fff;font-weight:700}
+.sb-item .icon{font-size:16px;flex-shrink:0}
+.sb-badge{margin-left:auto;background:var(--gold);color:#fff;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px}
+.sb-bottom{padding:12px 8px;border-top:1px solid rgba(255,255,255,.15)}
+.sb-user{display:flex;align-items:center;gap:8px;padding:8px 12px;color:rgba(255,255,255,.8);font-size:12px}
+.sb-user-icon{width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.2);display:flex;align-items:center;justify-content:center;font-size:14px}
+
+.main{margin-left:220px;min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:#fff;padding:14px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.topbar h1{font-family:var(--font-d);font-size:18px;font-weight:700;color:var(--navy)}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.logout-btn{padding:7px 14px;border-radius:7px;border:1.5px solid var(--border);background:#fff;color:var(--gray);font-size:12px;cursor:pointer;transition:.2s}
+.logout-btn:hover{border-color:var(--red);color:var(--red)}
+.content{padding:24px;flex:1}
+
+/* ── SCREENS ── */
+.screen{display:none}
+.screen.active{display:block}
+
+/* ── STATS ROW ── */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+.stat-card{background:#fff;border-radius:12px;padding:20px;box-shadow:0 1px 4px rgba(0,0,0,.06);border-left:4px solid var(--border)}
+.stat-card.pending{border-color:var(--orange)}
+.stat-card.approved{border-color:var(--green)}
+.stat-card.members{border-color:var(--navy)}
+.stat-card.referrals{border-color:var(--gold)}
+.stat-n{font-size:32px;font-weight:900;color:var(--navy);font-family:var(--font-d);line-height:1}
+.stat-l{font-size:12px;color:var(--gray);margin-top:4px;font-family:var(--font-d)}
+.stat-icon{font-size:24px;float:right;margin-top:-4px}
+
+/* ── TABLE ── */
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.06);overflow:hidden}
+.table-hdr{padding:16px 20px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.table-hdr h3{font-family:var(--font-d);font-size:15px;font-weight:700;color:var(--navy)}
+.search-box{padding:8px 14px;border-radius:8px;border:1.5px solid var(--border);font-size:13px;outline:none;width:220px;transition:.2s}
+.search-box:focus{border-color:var(--red)}
+.filter-tabs{display:flex;gap:6px}
+.ftab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:600;border:1.5px solid var(--border);background:#fff;cursor:pointer;transition:.2s;font-family:var(--font-d)}
+.ftab.active{background:var(--red);color:#fff;border-color:var(--red)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--gray);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);background:var(--gray-l)}
+tbody tr{border-bottom:1px solid var(--border);transition:.15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:#FAFAFA}
+td{padding:12px 16px;font-size:13px;vertical-align:middle}
+.td-name{font-weight:600;color:#1a1a1a;font-family:var(--font-d)}
+.td-sub{font-size:11px;color:var(--gray);margin-top:2px;font-family:var(--font-d)}
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600}
+.badge-pending{background:var(--orange-l);color:var(--orange)}
+.badge-approved{background:var(--green-l);color:var(--green)}
+.badge-rejected{background:#FEE2E2;color:var(--red)}
+.badge-member{background:#EEF2FF;color:var(--navy)}
+.badge-gold{background:var(--gold-p);color:var(--orange)}
+.action-btns{display:flex;gap:6px;flex-wrap:wrap}
+.abtn{padding:5px 12px;border-radius:6px;font-size:11px;font-weight:600;border:none;cursor:pointer;transition:.15s}
+.abtn:active{transform:scale(.96)}
+.abtn-approve{background:var(--green-l);color:var(--green)}
+.abtn-approve:hover{background:#86EFAC;color:#14532D}
+.abtn-reject{background:#FEE2E2;color:var(--red)}
+.abtn-reject:hover{background:#FCA5A5;color:var(--red-d)}
+.abtn-view{background:var(--gray-l);color:var(--navy)}
+.abtn-view:hover{background:#E0E7FF}
+.abtn-delete{background:#FEE2E2;color:#DC2626}
+.abtn-delete:hover{background:#FCA5A5}
+.abtn-edit{background:var(--gold-p);color:var(--orange)}
+.abtn-edit:hover{background:#FDE68A}
+
+/* ── MODAL ── */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:200;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-bg.show{display:flex}
+.modal{background:#fff;border-radius:16px;width:100%;max-width:560px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+.modal-head{padding:20px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;background:#fff;z-index:1}
+.modal-head h3{font-family:var(--font-d);font-size:16px;font-weight:700;color:var(--navy)}
+.modal-close{width:32px;height:32px;border-radius:50%;border:none;background:var(--gray-l);cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center}
+.modal-body{padding:20px 24px}
+.detail-row{display:flex;gap:12px;margin-bottom:12px;align-items:flex-start}
+.detail-icon{width:32px;height:32px;border-radius:50%;background:var(--gold-p);display:flex;align-items:center;justify-content:center;font-size:14px;flex-shrink:0}
+.detail-lbl{font-size:10px;color:var(--gray);font-family:var(--font-d)}
+.detail-val{font-size:13px;font-weight:600;color:#1a1a1a;font-family:var(--font-d)}
+.modal-footer{padding:16px 24px;border-top:1px solid var(--border);display:flex;gap:8px;justify-content:flex-end;background:#FAFAFA;border-radius:0 0 16px 16px}
+.mfbtn{padding:10px 20px;border-radius:8px;font-size:13px;font-weight:600;border:none;cursor:pointer;transition:.2s;font-family:var(--font-d)}
+.mfbtn-approve{background:var(--green);color:#fff}
+.mfbtn-approve:hover{background:#14532D}
+.mfbtn-reject{background:var(--red);color:#fff}
+.mfbtn-reject:hover{background:var(--red-d)}
+.mfbtn-cancel{background:var(--gray-l);color:var(--gray)}
+
+/* ── TOAST ── */
+.toast{position:fixed;top:20px;right:20px;z-index:9999;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;color:#fff;box-shadow:0 4px 20px rgba(0,0,0,.2);transform:translateY(-10px);opacity:0;transition:.3s;pointer-events:none;font-family:var(--font-d)}
+.toast.show{transform:translateY(0);opacity:1}
+.toast.ok{background:var(--green)}
+.toast.err{background:var(--red-d)}
+.toast.inf{background:var(--navy)}
+
+/* ── LOADER ── */
+.loader{position:fixed;inset:0;background:rgba(255,255,255,.85);z-index:9998;display:none;align-items:center;justify-content:center;flex-direction:column;gap:10px}
+.loader.show{display:flex}
+.spin{width:36px;height:36px;border:3px solid var(--gold-p);border-top:3px solid var(--red);border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── EMPTY ── */
+.empty-state{text-align:center;padding:60px 20px;color:var(--gray)}
+.empty-state .ei{font-size:48px;margin-bottom:12px}
+.empty-state p{font-family:var(--font-d);font-size:14px}
+
+/* ── MEMBER EDIT ── */
+.edit-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.edit-grid .fg-full{grid-column:1/-1}
+
+/* Responsive */
+@media(max-width:768px){
+  .sidebar{width:60px}
+  .sb-logo h2,.sb-logo p,.sb-item span{display:none}
+  .main{margin-left:60px}
+  .stats-grid{grid-template-columns:repeat(2,1fr)}
+  .edit-grid{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+
+<div class="toast" id="toast"></div>
+<div class="loader" id="loader"><div class="spin"></div><p style="font-family:var(--font-d);color:var(--red)">लोड हो रहा है...</p></div>
+
+<!-- ══════ LOGIN ══════ -->
+<div id="loginWrap">
+  <div class="login-box">
+    <div class="login-logo">
+      <img src="data:image/jpeg;base64,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" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--gold)">
+      <h2>श्रेष्ठी परिषद</h2>
+      <p>Admin Panel — सुरक्षित लॉगिन</p>
+    </div>
+    <div class="fg"><label>Admin Email</label><input type="email" id="adminEmail" placeholder="admin@shreshthi.in" autocomplete="username"></div>
+    <div class="fg"><label>Password</label><input type="password" id="adminPass" placeholder="••••••••" autocomplete="current-password" onkeydown="if(event.key==='Enter')adminLogin()"></div>
+    <button class="btn btn-red" onclick="adminLogin()">🔐 लॉगिन करें</button>
+    <div class="err-msg" id="loginErr">गलत Email या Password।</div>
+  </div>
+</div>
+
+<!-- ══════ ADMIN WRAP ══════ -->
+<div id="adminWrap">
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <div class="sb-logo">
+      <img src="data:image/jpeg;base64,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" style="width:44px;height:44px;border-radius:50%;object-fit:cover;border:2px solid var(--gold)">
+      <h2>श्रेष्ठी Admin</h2>
+      <p>Control Panel</p>
+    </div>
+    <div class="sb-nav">
+      <button class="sb-item active" onclick="goTab('dashboard')" id="tab-dashboard">
+        <span class="icon">📊</span><span>Dashboard</span>
+      </button>
+      <button class="sb-item" onclick="goTab('applications')" id="tab-applications">
+        <span class="icon">📋</span><span>Applications</span>
+        <span class="sb-badge" id="pendingBadge">0</span>
+      </button>
+      <button class="sb-item" onclick="goTab('members')" id="tab-members">
+        <span class="icon">👥</span><span>Members</span>
+      </button>
+      <button class="sb-item" onclick="goTab('referrals')" id="tab-referrals">
+        <span class="icon">🔗</span><span>Referrals</span>
+      </button>
+      <button class="sb-item" onclick="goTab('broadcast')" id="tab-broadcast">
+        <span class="icon">📢</span><span>Broadcast</span>
+      </button>
+    </div>
+    <div class="sb-bottom">
+      <div class="sb-user">
+        <div class="sb-user-icon">👤</div>
+        <span id="adminLabel">Admin</span>
+      </div>
+      <button class="sb-item" onclick="adminLogout()" style="margin-top:4px">
+        <span class="icon">🚪</span><span>Logout</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Main -->
+  <div class="main">
+    <div class="topbar">
+      <h1 id="pageTitle">Dashboard</h1>
+      <div class="topbar-right">
+        <span style="font-size:12px;color:var(--gray)" id="lastRefresh"></span>
+        <button class="logout-btn" onclick="refreshAll()">🔄 Refresh</button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── DASHBOARD ── -->
+      <div class="screen active" id="s-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card pending">
+            <div class="stat-icon">⏳</div>
+            <div class="stat-n" id="st-pending">—</div>
+            <div class="stat-l">Pending Applications</div>
+          </div>
+          <div class="stat-card approved">
+            <div class="stat-icon">✅</div>
+            <div class="stat-n" id="st-approved">—</div>
+            <div class="stat-l">Approved Members</div>
+          </div>
+          <div class="stat-card members">
+            <div class="stat-icon">👥</div>
+            <div class="stat-n" id="st-members">—</div>
+            <div class="stat-l">Total Members (Directory)</div>
+          </div>
+          <div class="stat-card referrals">
+            <div class="stat-icon">🔗</div>
+            <div class="stat-n" id="st-refs">—</div>
+            <div class="stat-l">Total Referrals</div>
+          </div>
+        </div>
+
+        <!-- Recent Applications -->
+        <div class="table-wrap">
+          <div class="table-hdr">
+            <h3>⏳ नई Applications (Pending)</h3>
+            <button class="btn btn-red" style="padding:8px 16px;font-size:12px;width:auto" onclick="goTab('applications')">सभी देखें →</button>
+          </div>
+          <table>
+            <thead><tr>
+              <th>नाम</th><th>मोबाइल</th><th>व्यापार</th><th>सदस्यता</th><th>Action</th>
+            </tr></thead>
+            <tbody id="dash-pending-list"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- ── APPLICATIONS ── -->
+      <div class="screen" id="s-applications">
+        <div class="table-wrap">
+          <div class="table-hdr">
+            <h3>📋 सदस्यता Applications</h3>
+            <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+              <input class="search-box" id="appSearch" placeholder="🔍 नाम, मोबाइल खोजें..." oninput="filterApps()">
+              <div class="filter-tabs">
+                <button class="ftab active" onclick="setAppFilter('all',this)">सभी</button>
+                <button class="ftab" onclick="setAppFilter('pending',this)">Pending</button>
+                <button class="ftab" onclick="setAppFilter('approved',this)">Approved</button>
+                <button class="ftab" onclick="setAppFilter('rejected',this)">Rejected</button>
+              </div>
+            </div>
+          </div>
+          <table>
+            <thead><tr>
+              <th>नाम</th><th>मोबाइल</th><th>व्यापार</th><th>सदस्यता</th><th>Status</th><th>तारीख</th><th>Action</th>
+            </tr></thead>
+            <tbody id="app-list"></tbody>
+          </table>
+          <div id="app-empty" class="empty-state" style="display:none"><div class="ei">📋</div><p>कोई application नहीं मिली।</p></div>
+        </div>
+      </div>
+
+      <!-- ── MEMBERS ── -->
+      <div class="screen" id="s-members">
+        <div class="table-wrap">
+          <div class="table-hdr">
+            <h3>👥 सदस्य Directory</h3>
+            <input class="search-box" id="memSearch" placeholder="🔍 नाम, व्यापार खोजें..." oninput="filterMembers()">
+          </div>
+          <table>
+            <thead><tr>
+              <th>नाम</th><th>मोबाइल</th><th>व्यापार</th><th>Category</th><th>शहर</th><th>Action</th>
+            </tr></thead>
+            <tbody id="mem-list"></tbody>
+          </table>
+          <div id="mem-empty" class="empty-state" style="display:none"><div class="ei">👥</div><p>कोई member नहीं मिला।</p></div>
+        </div>
+      </div>
+
+      <!-- ── REFERRALS ── -->
+      <div class="screen" id="s-referrals">
+        <div class="table-wrap">
+          <div class="table-hdr">
+            <h3>🔗 Referral Records</h3>
+          </div>
+          <table>
+            <thead><tr>
+              <th>From</th><th>To</th><th>Type</th><th>मूल्य</th><th>तारीख</th>
+            </tr></thead>
+            <tbody id="ref-list"></tbody>
+          </table>
+          <div id="ref-empty" class="empty-state" style="display:none"><div class="ei">🔗</div><p>कोई referral नहीं।</p></div>
+        </div>
+      </div>
+
+      <!-- ── BROADCAST ── -->
+      <div class="screen" id="s-broadcast">
+        <div class="table-wrap" style="max-width:600px">
+          <div class="table-hdr"><h3>📢 Announcement भेजें</h3></div>
+          <div style="padding:20px">
+            <div class="fg"><label>Title (हिंदी)</label><input id="bc_title" placeholder="Phase 2 खुली है!"></div>
+            <div class="fg"><label>Message</label><textarea id="bc_msg" style="border:1.5px solid var(--border);border-radius:8px;padding:10px;width:100%;font-size:13px;font-family:var(--font-d);min-height:100px;outline:none" placeholder="सदस्यों को सूचित करें..."></textarea></div>
+            <div class="fg"><label>Type</label>
+              <select id="bc_type" style="padding:10px 14px;border:1.5px solid var(--border);border-radius:8px;font-size:13px;outline:none">
+                <option value="info">📢 सूचना</option>
+                <option value="event">📅 Event</option>
+                <option value="urgent">🚨 जरूरी</option>
+              </select>
+            </div>
+            <button class="btn btn-red" style="width:auto;padding:12px 24px" onclick="sendBroadcast()">📢 Broadcast करें</button>
+          </div>
+
+          <div style="padding:0 20px 20px">
+            <h3 style="font-family:var(--font-d);font-size:14px;font-weight:700;color:var(--navy);margin-bottom:12px">पुराने Announcements</h3>
+            <div id="bc-list"></div>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- content -->
+  </div><!-- main -->
+</div><!-- adminWrap -->
+
+<!-- ══════ MODALS ══════ -->
+
+<!-- Application Detail Modal -->
+<div class="modal-bg" id="appModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3 id="appModalTitle">Application Details</h3>
+      <button class="modal-close" onclick="closeModal('appModal')">✕</button>
+    </div>
+    <div class="modal-body" id="appModalBody"></div>
+    <div class="modal-footer" id="appModalFooter"></div>
+  </div>
+</div>
+
+<!-- Member Edit Modal -->
+<div class="modal-bg" id="memModal">
+  <div class="modal">
+    <div class="modal-head">
+      <h3>Member Edit करें</h3>
+      <button class="modal-close" onclick="closeModal('memModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="edit-grid">
+        <div class="fg"><label>नाम (हिंदी)</label><input id="em_nH" placeholder="नाम"></div>
+        <div class="fg"><label>Name (English)</label><input id="em_nE" placeholder="Name"></div>
+        <div class="fg"><label>मोबाइल</label><input id="em_mob" placeholder="मोबाइल" readonly style="background:var(--gray-l)"></div>
+        <div class="fg"><label>Email</label><input id="em_email" placeholder="email"></div>
+        <div class="fg"><label>Business नाम</label><input id="em_bn" placeholder="Company"></div>
+        <div class="fg"><label>Category</label>
+          <select id="em_bc">
+            <option>Manufacturing / उत्पादन</option><option>Trading / व्यापार</option>
+            <option>Service / सेवा</option><option>IT / Technology</option>
+            <option>Healthcare / स्वास्थ्य</option><option>Education / शिक्षा</option>
+            <option>Real Estate / अचल संपत्ति</option><option>Finance / वित्त</option>
+            <option>Legal / कानूनी</option><option>CA / Accounting</option>
+            <option>Startup</option><option>अन्य</option>
+          </select>
+        </div>
+        <div class="fg"><label>शहर</label><input id="em_city" placeholder="City"></div>
+        <div class="fg"><label>Member Type</label>
+          <select id="em_type">
+            <option value="platinum">👑 Platinum</option>
+            <option value="gold">🥇 Gold</option>
+            <option value="silver">🌟 Silver</option>
+            <option value="general">✓ General</option>
+            <option value="youth">🚀 Youth</option>
+          </select>
+        </div>
+        <div class="fg fg-full"><label>Business Description</label>
+          <textarea id="em_bd" style="border:1.5px solid var(--border);border-radius:8px;padding:10px;width:100%;font-size:13px;font-family:var(--font-d);min-height:80px;outline:none" placeholder="विवरण..."></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="mfbtn mfbtn-cancel" onclick="closeModal('memModal')">रद्द करें</button>
+      <button class="mfbtn mfbtn-approve" onclick="saveMemberEdit()">💾 सेव करें</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ═══════════════════════════
+// FIREBASE
+// ═══════════════════════════
+const FB_CONFIG = {
+  apiKey:"AIzaSyDCgXzccV9U0LlbludLRRW5u4JRMV_8EG0",
+  authDomain:"shreshthi-samuh.firebaseapp.com",
+  projectId:"shreshthi-samuh",
+  storageBucket:"shreshthi-samuh.firebasestorage.app",
+  messagingSenderId:"637258573846",
+  appId:"1:637258573846:web:a165e73be5256baa9bed37"
+};
+
+// ── ADMIN CREDENTIALS (change these!) ──
+const ADMIN_EMAIL = "admin@shreshthi.in";
+const ADMIN_PASS  = "Shreshthi@2025";
+
+let db = null, auth = null;
+let allApps = [], allMembers = [], allRefs = [];
+let appFilter = 'all', editingMemberId = null;
+
+try {
+  if(!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+  db   = firebase.firestore();
+  auth = firebase.auth();
+} catch(e){ console.log('Firebase error:', e); }
+
+// ═══════════════════════════
+// AUTH
+// ═══════════════════════════
+async function adminLogin() {
+  const email = document.getElementById('adminEmail').value.trim();
+  const pass  = document.getElementById('adminPass').value.trim();
+  const errEl = document.getElementById('loginErr');
+  errEl.style.display = 'none';
+
+  // Simple credential check (no Firebase Auth needed for admin)
+  if(email === ADMIN_EMAIL && pass === ADMIN_PASS) {
+    sessionStorage.setItem('ss_admin', '1');
+    showAdmin();
+  } else {
+    errEl.style.display = 'block';
+    document.getElementById('adminPass').value = '';
+  }
+}
+
+function adminLogout() {
+  sessionStorage.removeItem('ss_admin');
+  document.getElementById('adminWrap').style.display = 'none';
+  document.getElementById('loginWrap').style.display = 'flex';
+}
+
+function showAdmin() {
+  document.getElementById('loginWrap').style.display = 'none';
+  document.getElementById('adminWrap').style.display = 'flex';
+  document.getElementById('adminLabel').textContent = 'Admin';
+  refreshAll();
+}
+
+// Auto-login if session active
+window.addEventListener('load', () => {
+  if(sessionStorage.getItem('ss_admin')) showAdmin();
+});
+
+// ═══════════════════════════
+// NAVIGATION
+// ═══════════════════════════
+const TAB_TITLES = {
+  dashboard:'Dashboard', applications:'Applications', members:'Members',
+  referrals:'Referrals', broadcast:'Broadcast'
+};
+function goTab(name) {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.sb-item').forEach(b => b.classList.remove('active'));
+  document.getElementById('s-'+name).classList.add('active');
+  document.getElementById('tab-'+name).classList.add('active');
+  document.getElementById('pageTitle').textContent = TAB_TITLES[name]||name;
+  if(name==='applications') renderApps();
+  if(name==='members') renderMembers();
+  if(name==='referrals') renderRefs();
+  if(name==='broadcast') loadBroadcasts();
+}
+
+// ═══════════════════════════
+// REFRESH ALL DATA
+// ═══════════════════════════
+async function refreshAll() {
+  showLoader();
+  try {
+    await Promise.all([loadApps(), loadMembers(), loadRefs()]);
+    updateStats();
+    renderDashPending();
+    document.getElementById('lastRefresh').textContent = 'Updated: ' + new Date().toLocaleTimeString('hi');
+  } catch(e){ toast('Data load nahi hua.','err'); console.log(e); }
+  hideLoader();
+}
+
+async function loadApps() {
+  if(!db) return;
+  const snap = await db.collection('applications').orderBy('createdAt','desc').get();
+  allApps = [];
+  snap.forEach(doc => allApps.push({id: doc.id, ...doc.data()}));
+}
+
+async function loadMembers() {
+  if(!db) return;
+  const snap = await db.collection('members').get();
+  allMembers = [];
+  snap.forEach(doc => allMembers.push({id: doc.id, ...doc.data()}));
+}
+
+async function loadRefs() {
+  if(!db) return;
+  try {
+    const snap = await db.collection('referrals').orderBy('createdAt','desc').get();
+    allRefs = [];
+    snap.forEach(doc => allRefs.push({id: doc.id, ...doc.data()}));
+  } catch(e){ allRefs = []; }
+}
+
+function updateStats() {
+  const pending  = allApps.filter(a => a.status==='pending').length;
+  const approved = allApps.filter(a => a.status==='approved').length;
+  document.getElementById('st-pending').textContent  = pending;
+  document.getElementById('st-approved').textContent = approved;
+  document.getElementById('st-members').textContent  = allMembers.length;
+  document.getElementById('st-refs').textContent     = allRefs.length;
+  document.getElementById('pendingBadge').textContent = pending;
+  document.getElementById('pendingBadge').style.display = pending > 0 ? 'inline' : 'none';
+}
+
+// ═══════════════════════════
+// DASHBOARD — Pending list
+// ═══════════════════════════
+function renderDashPending() {
+  const tbody = document.getElementById('dash-pending-list');
+  const pending = allApps.filter(a => a.status==='pending').slice(0,5);
+  if(!pending.length) {
+    tbody.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--gray);font-family:var(--font-d)">✅ कोई pending application नहीं।</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = pending.map(a => `
+    <tr>
+      <td><div class="td-name">${a.nameH||a.nameE||'—'}</div><div class="td-sub">${a.email||''}</div></td>
+      <td>${a.mobile||'—'}</td>
+      <td><div class="td-name">${a.bizName||'—'}</div><div class="td-sub">${(a.bizCategory||'').split('/')[0]?.trim()||''}</div></td>
+      <td>${memberBadge(a.memberType)}</td>
+      <td>
+        <div class="action-btns">
+          <button class="abtn abtn-view" onclick="viewApp('${a.id}')">👁 देखें</button>
+          <button class="abtn abtn-approve" onclick="approveApp('${a.id}')">✅ Approve</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════
+// APPLICATIONS
+// ═══════════════════════════
+function setAppFilter(f, el) {
+  appFilter = f;
+  document.querySelectorAll('.ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  filterApps();
+}
+
+function filterApps() {
+  const q = (document.getElementById('appSearch').value||'').toLowerCase();
+  let list = allApps;
+  if(appFilter !== 'all') list = list.filter(a => a.status === appFilter);
+  if(q) list = list.filter(a => {
+    const txt = ((a.nameH||'')+(a.nameE||'')+(a.mobile||'')+(a.bizName||'')).toLowerCase();
+    return txt.includes(q);
+  });
+  renderApps(list);
+}
+
+function renderApps(list) {
+  if(!list) {
+    let l = allApps;
+    if(appFilter !== 'all') l = l.filter(a => a.status === appFilter);
+    list = l;
+  }
+  const tbody = document.getElementById('app-list');
+  const empty = document.getElementById('app-empty');
+  if(!list.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+  tbody.innerHTML = list.map(a => `
+    <tr>
+      <td><div class="td-name">${a.nameH||a.nameE||'—'}</div><div class="td-sub">${a.appId||''}</div></td>
+      <td>${a.mobile||'—'}</td>
+      <td><div class="td-name">${a.bizName||'—'}</div><div class="td-sub">${(a.bizCategory||'').split('/')[0]?.trim()||''}</div></td>
+      <td>${memberBadge(a.memberType)}</td>
+      <td>${statusBadge(a.status)}</td>
+      <td style="font-size:11px;color:var(--gray)">${fmtDate(a.createdAt)}</td>
+      <td>
+        <div class="action-btns">
+          <button class="abtn abtn-view" onclick="viewApp('${a.id}')">👁 देखें</button>
+          ${a.status==='pending'?`
+          <button class="abtn abtn-approve" onclick="approveApp('${a.id}')">✅ Approve</button>
+          <button class="abtn abtn-reject" onclick="rejectApp('${a.id}')">❌ Reject</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function viewApp(id) {
+  const a = allApps.find(x => x.id===id);
+  if(!a) return;
+  document.getElementById('appModalTitle').textContent = a.nameH||a.nameE||'Application';
+  document.getElementById('appModalBody').innerHTML = `
+    <div class="detail-row"><div class="detail-icon">👤</div><div><div class="detail-lbl">नाम</div><div class="detail-val">${a.nameH||''} / ${a.nameE||''}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📱</div><div><div class="detail-lbl">मोबाइल</div><div class="detail-val"><a href="tel:${a.mobile}" style="color:var(--red)">${a.mobile||'—'}</a></div></div></div>
+    <div class="detail-row"><div class="detail-icon">✉️</div><div><div class="detail-lbl">Email</div><div class="detail-val">${a.email||'—'}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📍</div><div><div class="detail-lbl">जिला / गोत्र</div><div class="detail-val">${a.district||'—'} / ${a.gotra||'—'}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">💼</div><div><div class="detail-lbl">Business</div><div class="detail-val">${a.bizName||'—'}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🏷</div><div><div class="detail-lbl">Category / अनुभव</div><div class="detail-val">${a.bizCategory||'—'} / ${a.experience||'—'}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📝</div><div><div class="detail-lbl">विवरण</div><div class="detail-val">${a.bizDescription||'—'}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🏅</div><div><div class="detail-lbl">सदस्यता</div><div class="detail-val">${memberBadge(a.memberType)}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">🤝</div><div><div class="detail-lbl">अनुशंसक</div><div class="detail-val">${a.ref1Name||'—'} (${a.ref1Mobile||'—'})</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📊</div><div><div class="detail-lbl">Status</div><div class="detail-val">${statusBadge(a.status)}</div></div></div>
+    <div class="detail-row"><div class="detail-icon">📅</div><div><div class="detail-lbl">तारीख</div><div class="detail-val">${fmtDate(a.createdAt)}</div></div></div>`;
+  document.getElementById('appModalFooter').innerHTML = a.status==='pending'?`
+    <button class="mfbtn mfbtn-cancel" onclick="closeModal('appModal')">बंद करें</button>
+    <button class="mfbtn mfbtn-reject" onclick="rejectApp('${a.id}');closeModal('appModal')">❌ Reject</button>
+    <button class="mfbtn mfbtn-approve" onclick="approveApp('${a.id}');closeModal('appModal')">✅ Approve करें</button>`:`
+    <button class="mfbtn mfbtn-cancel" onclick="closeModal('appModal')">बंद करें</button>`;
+  document.getElementById('appModal').classList.add('show');
+}
+
+// ── APPROVE APPLICATION → member ban jata hai ──
+async function approveApp(id) {
+  const a = allApps.find(x => x.id===id);
+  if(!a){ toast('Application nahi mili.','err'); return; }
+  if(!confirm(`"${a.nameH||a.nameE}" ko approve karein?\nWoh Members Directory mein dikh jayenge.`)) return;
+  showLoader();
+  try {
+    // 1. Application status update karo
+    await db.collection('applications').doc(id).update({status:'approved', approvedAt: new Date().toISOString()});
+
+    // 2. Members collection mein add karo (mobile as doc ID)
+    const memberId = a.mobile || id;
+    const memberData = {
+      nameH: a.nameH||'',
+      nameE: a.nameE||'',
+      mobile: a.mobile||'',
+      email: a.email||'',
+      district: a.district||'',
+      city: a.district||'',
+      gotra: a.gotra||'',
+      bizName: a.bizName||'',
+      bizCategory: a.bizCategory||'',
+      experience: a.experience||'',
+      bizDescription: a.bizDescription||'',
+      memberType: a.memberType||'general',
+      approved: true,
+      approvedAt: new Date().toISOString(),
+      createdAt: a.createdAt||new Date().toISOString(),
+      products: [],
+      social: {},
+      appId: a.appId||id,
+    };
+    await db.collection('members').doc(memberId).set(memberData, {merge: true});
+
+    // Local update
+    const idx = allApps.findIndex(x => x.id===id);
+    if(idx>=0) allApps[idx].status = 'approved';
+    if(!allMembers.find(x => x.id===memberId)) allMembers.push({id: memberId, ...memberData});
+
+    updateStats();
+    renderDashPending();
+    renderApps();
+
+    hideLoader();
+    toast(`✅ ${a.nameH||a.nameE} approve ho gaye! Directory mein dikh rahe hain.`,'ok');
+  } catch(e){
+    hideLoader();
+    toast('Error: '+e.message,'err');
+    console.log(e);
+  }
+}
+
+async function rejectApp(id) {
+  const a = allApps.find(x => x.id===id);
+  if(!a) return;
+  if(!confirm(`"${a.nameH||a.nameE}" ko reject karein?`)) return;
+  showLoader();
+  try {
+    await db.collection('applications').doc(id).update({status:'rejected', rejectedAt: new Date().toISOString()});
+    const idx = allApps.findIndex(x => x.id===id);
+    if(idx>=0) allApps[idx].status = 'rejected';
+    updateStats();
+    renderDashPending();
+    renderApps();
+    hideLoader();
+    toast('Application reject ki gayi.','inf');
+  } catch(e){ hideLoader(); toast('Error.','err'); }
+}
+
+// ═══════════════════════════
+// MEMBERS
+// ═══════════════════════════
+function filterMembers() {
+  const q = (document.getElementById('memSearch').value||'').toLowerCase();
+  const list = q ? allMembers.filter(m => {
+    const txt = ((m.nameH||'')+(m.nameE||'')+(m.bizName||'')+(m.mobile||'')).toLowerCase();
+    return txt.includes(q);
+  }) : allMembers;
+  renderMembers(list);
+}
+
+function renderMembers(list) {
+  if(!list) list = allMembers;
+  const tbody = document.getElementById('mem-list');
+  const empty = document.getElementById('mem-empty');
+  if(!list.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = list.map(m => `
+    <tr>
+      <td><div class="td-name">${m.nameH||m.nameE||'—'}</div><div class="td-sub">${m.id}</div></td>
+      <td>${m.mobile||m.id||'—'}</td>
+      <td><div class="td-name">${m.bizName||'—'}</div></td>
+      <td><span style="font-size:12px;color:var(--gray)">${(m.bizCategory||'').split('/')[0]?.trim()||'—'}</span></td>
+      <td>${m.city||m.district||'—'}</td>
+      <td>
+        <div class="action-btns">
+          <button class="abtn abtn-edit" onclick="editMember('${m.id}')">✏️ Edit</button>
+          <button class="abtn abtn-delete" onclick="deleteMember('${m.id}')">🗑 Delete</button>
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function editMember(id) {
+  const m = allMembers.find(x => x.id===id);
+  if(!m) return;
+  editingMemberId = id;
+  document.getElementById('em_nH').value   = m.nameH||'';
+  document.getElementById('em_nE').value   = m.nameE||'';
+  document.getElementById('em_mob').value  = m.mobile||m.id||'';
+  document.getElementById('em_email').value= m.email||'';
+  document.getElementById('em_bn').value   = m.bizName||'';
+  document.getElementById('em_bc').value   = m.bizCategory||'';
+  document.getElementById('em_city').value = m.city||m.district||'';
+  document.getElementById('em_type').value = m.memberType||'general';
+  document.getElementById('em_bd').value   = m.bizDescription||'';
+  document.getElementById('memModal').classList.add('show');
+}
+
+async function saveMemberEdit() {
+  if(!editingMemberId) return;
+  showLoader();
+  const data = {
+    nameH: document.getElementById('em_nH').value,
+    nameE: document.getElementById('em_nE').value,
+    email: document.getElementById('em_email').value,
+    bizName: document.getElementById('em_bn').value,
+    bizCategory: document.getElementById('em_bc').value,
+    city: document.getElementById('em_city').value,
+    district: document.getElementById('em_city').value,
+    memberType: document.getElementById('em_type').value,
+    bizDescription: document.getElementById('em_bd').value,
+  };
+  try {
+    await db.collection('members').doc(editingMemberId).set(data, {merge:true});
+    const idx = allMembers.findIndex(x => x.id===editingMemberId);
+    if(idx>=0) allMembers[idx] = {...allMembers[idx], ...data};
+    renderMembers();
+    closeModal('memModal');
+    hideLoader();
+    toast('✅ Member update ho gaya!','ok');
+  } catch(e){ hideLoader(); toast('Error: '+e.message,'err'); }
+}
+
+async function deleteMember(id) {
+  const m = allMembers.find(x => x.id===id);
+  if(!m) return;
+  if(!confirm(`"${m.nameH||m.nameE||id}" ko Members se remove karein?\nWoh Directory mein nahi dikhenge.`)) return;
+  showLoader();
+  try {
+    await db.collection('members').doc(id).delete();
+    allMembers = allMembers.filter(x => x.id!==id);
+    updateStats();
+    renderMembers();
+    hideLoader();
+    toast('Member remove ho gaya.','inf');
+  } catch(e){ hideLoader(); toast('Error.','err'); }
+}
+
+// ═══════════════════════════
+// REFERRALS
+// ═══════════════════════════
+function renderRefs() {
+  const tbody = document.getElementById('ref-list');
+  const empty = document.getElementById('ref-empty');
+  if(!allRefs.length){ tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display='none';
+  tbody.innerHTML = allRefs.map(r => `
+    <tr>
+      <td>${r.from||'—'}</td>
+      <td><strong>${r.to||'—'}</strong></td>
+      <td><span class="badge badge-member">${r.type||'—'}</span></td>
+      <td>${r.value?'₹'+Number(r.value).toLocaleString('hi'):'—'}</td>
+      <td style="font-size:11px;color:var(--gray)">${fmtDate(r.createdAt)}</td>
+    </tr>`).join('');
+}
+
+// ═══════════════════════════
+// BROADCAST
+// ═══════════════════════════
+async function sendBroadcast() {
+  const title = document.getElementById('bc_title').value.trim();
+  const msg   = document.getElementById('bc_msg').value.trim();
+  const type  = document.getElementById('bc_type').value;
+  if(!title||!msg){ toast('Title aur Message dono bharein.','err'); return; }
+  showLoader();
+  try {
+    await db.collection('announcements').add({title, message:msg, type, createdAt:new Date().toISOString(), createdBy:'admin'});
+    document.getElementById('bc_title').value='';
+    document.getElementById('bc_msg').value='';
+    hideLoader();
+    toast('📢 Broadcast bheja gaya!','ok');
+    loadBroadcasts();
+  } catch(e){ hideLoader(); toast('Error.','err'); }
+}
+
+async function loadBroadcasts() {
+  const el = document.getElementById('bc-list');
+  if(!db){ el.innerHTML='<p style="color:var(--gray);font-family:var(--font-d);font-size:13px">Firebase connected nahi.</p>'; return; }
+  try {
+    const snap = await db.collection('announcements').orderBy('createdAt','desc').limit(10).get();
+    if(snap.empty){ el.innerHTML='<p style="color:var(--gray);font-family:var(--font-d);font-size:13px">Koi announcement nahi.</p>'; return; }
+    el.innerHTML = snap.docs.map(doc => {
+      const a = doc.data();
+      return `<div style="background:var(--gray-l);border-radius:8px;padding:12px;margin-bottom:8px;border-left:3px solid var(--red)">
+        <div style="font-family:var(--font-d);font-size:13px;font-weight:600;color:var(--navy)">${a.title}</div>
+        <div style="font-family:var(--font-d);font-size:12px;color:var(--gray);margin-top:4px">${a.message}</div>
+        <div style="font-size:10px;color:var(--gray);margin-top:6px">${fmtDate(a.createdAt)}</div>
+      </div>`;
+    }).join('');
+  } catch(e){ el.innerHTML='<p style="color:var(--gray)">Error loading.</p>'; }
+}
+
+// ═══════════════════════════
+// HELPERS
+// ═══════════════════════════
+function memberBadge(t) {
+  const map = {platinum:'👑 Platinum',gold:'🥇 Gold',silver:'🌟 Silver',general:'✓ General',youth:'🚀 Youth'};
+  const cls  = (t==='platinum'||t==='gold')?'badge-gold':'badge-member';
+  return `<span class="badge ${cls}">${map[t]||t||'—'}</span>`;
+}
+function statusBadge(s) {
+  const map = {pending:'badge-pending',approved:'badge-approved',rejected:'badge-rejected'};
+  const lbl = {pending:'⏳ Pending',approved:'✅ Approved',rejected:'❌ Rejected'};
+  return `<span class="badge ${map[s]||'badge-member'}">${lbl[s]||s||'—'}</span>`;
+}
+function fmtDate(dt) {
+  if(!dt) return '—';
+  try { return new Date(dt).toLocaleDateString('hi-IN',{day:'2-digit',month:'short',year:'numeric'}); }
+  catch(e){ return dt; }
+}
+function toast(msg, type='ok') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'toast '+type+' show';
+  setTimeout(()=>t.classList.remove('show'), 3500);
+}
+function showLoader(){ document.getElementById('loader').classList.add('show'); }
+function hideLoader(){ document.getElementById('loader').classList.remove('show'); }
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+
+// Close modal on background click
+document.querySelectorAll('.modal-bg').forEach(el => {
+  el.addEventListener('click', e => { if(e.target===el) el.classList.remove('show'); });
+});
+</script>
+</body>
+</html>
